@@ -2,6 +2,7 @@ from matplotlib import pyplot as plt
 from gridWorld import gridWorld
 from pendulum import pendulum
 import numpy as np
+import math
 
 def show_action_value_function(env, Q):
     pos = {"U": (-0.15, -0.3), "D": (-0.15, 0.4), "L": (-0.45, 0.1), "R": (0.05, 0.1)}
@@ -43,9 +44,13 @@ def Q_Learning(env, gamma, Q, alpha, epsilon):
         - actions = env.actions()        List available actions in current state (is empty if state is terminal)
     """
     
-    while(not done):
-        raise Exception("Problem 1a) not implemented")
-
+    while (not done):
+        a = np.argmax(Q[s]) if np.random.random_sample() <= epsilon else np.random.randint(low=0, high=Q.shape[1])
+        action = env.actions()[a]
+        s_next, r, done = env.step(action)
+        Q[s][a] += alpha * (r + gamma * max(Q[s_next]) - Q[s][a])
+        s = s_next
+    
     return Q
 
 ####################  Problem 2: SARSA #################### 
@@ -68,10 +73,68 @@ def SARSA(env, gamma, Q, alpha, epsilon):
         - s_next, r, done = env.step(a)  Take action a and observe the next state, reward and environment termination
         - actions = env.actions()        List available actions in current state (is empty if state is terminal)
     """
-    
-    while(not done):
-        raise Exception("Problem 2a) not implemented")
+    a = np.argmax(Q[s]) if np.random.random_sample() <= epsilon else np.random.randint(low=0, high=Q.shape[1])
 
+    while (not done):
+        action = env.actions()[a]
+
+        s_next, r, done = env.step(action)
+        
+        if len(env.actions()) == 0:
+            a_next = 0
+        else:
+            a_next = np.argmax(Q[s_next]) if np.random.random_sample() <= epsilon else np.random.randint(low=0, high=Q.shape[1])
+
+        Q[s][a] += alpha * (r + gamma * Q[s_next][a_next] - Q[s][a])
+
+        s, a = s_next, a_next
+    
+    return Q
+
+
+def convert_state_to_indices(s, n_theta, n_theta_dot):
+    for i in range(1, n_theta + 1):
+        if s[0] <= -math.pi + i * (2 * math.pi) / n_theta:
+            s1 = i - 1
+            break
+
+    for i in range(1, n_theta_dot + 1):
+        if s[1] <= -10 + i * 20 / n_theta_dot:
+            s2 = i - 1
+            break
+
+    return s1, s2
+
+
+def Q_Learning_pendulum(env, gamma, Q, alpha, epsilon, n_theta, n_theta_dot):
+    """
+    Input arguments:
+        - env           Is the environment
+        - gamma         Is the discount rate
+        - Q             Is the Q table
+        - alpha         Is the learning rate
+        - epsilon       Is the probability of choosing greedy action
+        - n_theta       Is the number of discretized states for the continuous theta state
+        - n_theta_dot   Is the number of discretized states for the continuous theta_dot state
+    
+    Some usefull functions of the grid world environment
+        - s_next, r, done = env.step(a)  Take action a and observe the next state, reward and environment termination
+        - actions = env.actions()        List available actions in current state (is empty if state is terminal)
+    """
+    # Reset environment
+    s, r, done = env.reset()
+    s1, s2 = convert_state_to_indices(s, n_theta, n_theta_dot)
+    
+    while (not done):
+        a = np.argmax(Q[s1][s2]) if np.random.random_sample() <= epsilon else np.random.randint(low=0, high=Q.shape[2])
+        action = env.actions()[a]
+
+        s_next, r, done = env.step(action)
+        s1_next, s2_next = convert_state_to_indices(s_next, n_theta, n_theta_dot)
+
+        Q[s1][s2][a] += alpha * (r + gamma * max(Q[s1_next][s2_next]) - Q[s1][s2][a])
+        s1, s2 = s1_next, s2_next
+    
     return Q
 
 
@@ -88,8 +151,7 @@ if __name__ == "__main__":
     # Render image
     fig = env.render(show_state = True)
     plt.show()
-
-
+    
     """
     Problem 1 (Run Q-Learning)
     
@@ -99,7 +161,7 @@ if __name__ == "__main__":
     alpha = 0.1     # Learning rate
     epsilon = 0.9   # Probability of taking greedy action
     episodes = 5000 # Number of episodes
-
+    
     Q = np.zeros([len(env.states()), 4])
     for i in range(episodes):
         Q_Learning(env, gamma, Q, alpha, epsilon)
@@ -107,7 +169,6 @@ if __name__ == "__main__":
     # Render Q-values and policy 
     show_action_value_function(env, Q)
     show_policy(env, Q)
-
 
     """
     Problem 2 (Run SARSA)
@@ -126,7 +187,6 @@ if __name__ == "__main__":
     # Render Q-values and policy 
     show_action_value_function(env, Q)
     show_policy(env, Q)
-
 
     """
     Problem 3) Pendulum 
@@ -152,12 +212,14 @@ if __name__ == "__main__":
     epsilon = 0.5   # Probability of taking greedy action
     episodes = 5000 # Number of episodes
 
+    n_theta = 100       # number of discretized states for theta state
+    n_theta_dot = 100    # number of discretized states for theta_dot state
 
-    raise Exception("Problem 3a) Choose your Q-Table to fit discretization")
-    #Q = np.zeros([?, ?, 3])
-    
+
+    Q = np.zeros([n_theta, n_theta_dot, 3])
     for i in range(episodes):
-        raise Exception("Problem 3a) Choose either Q-Learning or SARSA, and modify it to work with the pendulum environment")
+        print(f'Episode: {i}')
+        Q_Learning_pendulum(env, gamma, Q, alpha, epsilon, n_theta, n_theta_dot)
 
 
     # Plot the value function
@@ -175,8 +237,7 @@ if __name__ == "__main__":
     fig = env.render()
     s, _, _ = env.reset([np.pi, 0])
     for i in range(200):
-        raise Exception("Problem 3a) Change code below to use you discretization. If you do, you should get a cool animation")
-        #s = ? 
-        #a = np.argmax(Q[?, ?, :])
+        s1, s2 = convert_state_to_indices(s, n_theta, n_theta_dot)
+        a = np.argmax(Q[s1][s2][:])
         s, _, _ = env.step(a)
         plt.pause(env.step_size)
